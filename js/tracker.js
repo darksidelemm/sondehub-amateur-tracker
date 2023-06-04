@@ -1964,9 +1964,21 @@ function redrawPrediction(vcallsign) {
 }
 
 function updatePolyline(vcallsign) {
-    for(var k in vehicles[vcallsign].polyline) {
-        vehicles[vcallsign].polyline[k].setLatLngs(vehicles[vcallsign].positions);
+    if (!wvar.nyan) {
+        vehicles[vcallsign].polyline[0].setLatLngs(vehicles[vcallsign].positions);
+
+        if(vehicles[vcallsign].polyline.length > 0){
+            vehicles[vcallsign].polyline[1].setLatLngs(vehicles[vcallsign].positions_neg);
+            vehicles[vcallsign].polyline[2].setLatLngs(vehicles[vcallsign].positions_pos);
+        }
+
+    } else {
+        // Nyancat mode, doesnt currently support wrapped polylines.
+        for(var k in vehicles[vcallsign].polyline) {
+            vehicles[vcallsign].polyline[k].setLatLngs(vehicles[vcallsign].positions);
+        }
     }
+
 }
 
 function drawAltitudeProfile(c1, c2, series, alt_max, chase) {
@@ -2672,11 +2684,26 @@ function addPosition(position) {
             
             polyline_visible = true;
             polyline = [
-                new L.Wrapped.Polyline(point, {
+                new L.Geodesic([point], {
                     color: balloon_colors[color_index],
                     opacity: 1,
                     weight: 3,
-                }).addTo(map)
+                    wrap: false
+                }).addTo(map),
+                // -360 degrees
+                new L.Geodesic([point], {
+                    color: balloon_colors[color_index],
+                    opacity: 1,
+                    weight: 3,
+                    wrap: false
+                }).addTo(map),
+                // + 360 degrees
+                new L.Geodesic([point], {
+                    color: balloon_colors[color_index],
+                    opacity: 1,
+                    weight: 3,
+                    wrap: false
+                }).addTo(map),
             ];
         }
 
@@ -2708,6 +2735,8 @@ function addPosition(position) {
                             subhorizon_circle_title: subhorizon_circle_title,
                             num_positions: 0,
                             positions: [],
+                            positions_neg: [],
+                            positions_pos: [],
                             positions_ts: [],
                             positions_ids: [],
                             positions_alts: [],
@@ -2835,6 +2864,8 @@ function addPosition(position) {
     var vehicle = vehicles[vcallsign];
 
     var new_latlng = new L.LatLng(position.gps_lat, position.gps_lon);
+    var new_latlng_neg = new L.LatLng(position.gps_lat, position.gps_lon-360.0);
+    var new_latlng_pos = new L.LatLng(position.gps_lat, position.gps_lon+360.0);
     var new_ts = convert_time(position.gps_time);
     var curr_ts = convert_time(vehicle.curr_position.gps_time);
     var new_alt = position.gps_alt;
@@ -2921,9 +2952,13 @@ function addPosition(position) {
         if(wvar.mode == "Position") {
             vehicle.num_positions= 1;
             vehicle.positions[0] = new_latlng;
+            vehicle.positions_neg[0] = new_latlng_neg;
+            vehicle.positions_pos[0] = new_latlng_pos;
             vehicle.positions_ts[0] = new_ts;
         } else {
             vehicle.positions.push(new_latlng);
+            vehicle.positions_neg.push(new_latlng_neg);
+            vehicle.positions_pos.push(new_latlng_pos);
             vehicle.positions_ts.push(new_ts);
             vehicle.positions_ids.push(position.position_id);
             vehicle.positions_alts.push(new_alt)
@@ -3007,6 +3042,8 @@ function addPosition(position) {
 
         // insert the new position into our arrays
         vehicle.positions.splice(idx, 0, new_latlng);
+        vehicle.positions_neg.splice(idx, 0, new_latlng_neg);
+        vehicle.positions_pos.splice(idx, 0, new_latlng_pos);
         vehicle.positions_alts.splice(idx, 0, new_alt);
         vehicle.positions_ts.splice(idx, 0, new_ts);
         vehicle.positions_ids.splice(idx, 0, position.position_id);
